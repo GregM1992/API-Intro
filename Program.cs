@@ -27,13 +27,15 @@ List<Employee> employees = new List<HoneyRaesAPI.Models.Employee>
     {
         Id = 1,
         Name = "Jim Carrey",
-        Description = "Cool as heck"
+        Description = "Cool as heck",
+        Specialty = "Facial expressions"
     },
     new Employee
     {
         Id = 2,
         Name = "James Acaster",
-        Description = "Neato"
+        Description = "Neato",
+        Specialty = "Talking fast"
     },
 };
 List<ServiceTicket> serviceTickets = new List<HoneyRaesAPI.Models.ServiceTicket> 
@@ -50,7 +52,7 @@ List<ServiceTicket> serviceTickets = new List<HoneyRaesAPI.Models.ServiceTicket>
     {
         Id = 2,
         CustomerId = 3,
-        EmployeeId = 2,
+        EmployeeId = 1,
         Description = "this is an easy fix",
         Emergency = false,
         DateCompleted = new DateTime(2023,12,2)
@@ -112,7 +114,13 @@ app.MapGet("/servicetickets", () =>
 
 app.MapGet("/servicetickets/{id}", (int id) =>
 {
-    return serviceTickets.FirstOrDefault(t => t.Id == id);
+    ServiceTicket serviceTicket = serviceTickets.FirstOrDefault(st => st.Id == id);
+    if (serviceTicket == null)
+    {
+        return Results.NotFound();
+    }
+    serviceTicket.Employee = employees.FirstOrDefault(e => e.Id == serviceTicket.EmployeeId);
+    return Results.Ok(serviceTicket);
 });
 
 app.MapGet("/employee", () =>
@@ -122,7 +130,13 @@ app.MapGet("/employee", () =>
 
 app.MapGet("/employee/{id}", (int id) =>
 {
-    return employees.FirstOrDefault(e => e.Id == id);
+    Employee employee = employees.FirstOrDefault(e => e.Id == id);
+    if(employee == null)
+    {
+        return Results.NotFound();
+    }
+    employee.ServiceTickets = serviceTickets.Where(st => st.EmployeeId == id).ToList();
+    return Results.Ok(employee);
 });
 
 app.MapGet("/customer", () =>
@@ -132,9 +146,48 @@ app.MapGet("/customer", () =>
 
 app.MapGet("/customer/{id}", (int id) =>
 {
-    return customers.FirstOrDefault(e => e.Id == id);
+    Customer customer = customers.FirstOrDefault(e => e.Id == id);
+    if (customer == null)
+    {
+        return Results.NotFound();
+    }
+    return Results.Ok(customer);
 });
 
+app.MapPost("/servicetickets", (ServiceTicket serviceTicket) =>
+{
+    serviceTicket.Id = serviceTickets.Max(st =>  st.Id) + 1;
+    serviceTickets.Add(serviceTicket);
+    return serviceTicket;
+}
+);
+
+app.MapDelete("/servicetickets/{id}", (int id) =>
+{
+    ServiceTicket ticketToRemove = serviceTickets.Where(st => st.Id == id).FirstOrDefault();
+    serviceTickets.Remove(ticketToRemove);
+});
+
+app.MapPut("/servicetickets/{id}", (int id, ServiceTicket updatedServiceTicket) =>
+{
+    ServiceTicket existingServiceTicket = serviceTickets.FirstOrDefault(st => st.Id == id);
+
+    existingServiceTicket.EmployeeId = updatedServiceTicket.EmployeeId;
+
+    if (existingServiceTicket == null)
+    {
+        return Results.NotFound();
+    }
+    return Results.Ok(existingServiceTicket);
+
+});
+
+app.MapPost("/servicetickets/{id}/complete", (int id) =>
+{
+    ServiceTicket ticketToComplete = serviceTickets.FirstOrDefault(st => st.Id == id);
+    ticketToComplete.DateCompleted = DateTime.Today;
+    return Results.Ok("Ticket marked complete");
+});
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
