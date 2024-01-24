@@ -188,6 +188,29 @@ app.MapPost("/servicetickets/{id}/complete", (int id) =>
     ticketToComplete.DateCompleted = DateTime.Today;
     return Results.Ok("Ticket marked complete");
 });
+
+app.MapGet("/servicetickets/incompleteEmergencies", () =>
+{
+    List<ServiceTicket> IncompleteEmergencies = serviceTickets.Where(st => st.DateCompleted == DateTime.MinValue && st.Emergency == true).ToList();
+    if(IncompleteEmergencies.Count == 0)
+    {
+        return Results.NotFound("All emergencies have been completed");
+    }
+    return Results.Ok(IncompleteEmergencies);
+}
+);
+
+app.MapGet("/servicetickets/unassigned", () =>
+{
+    List<ServiceTicket> UnassignedTickets = serviceTickets.Where(st => st.EmployeeId == null).ToList();
+    if(UnassignedTickets.Count == 0)
+    {
+        return Results.NotFound("All tickets have been assigned");
+    }
+    return Results.Ok(UnassignedTickets);
+    
+}
+);
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
