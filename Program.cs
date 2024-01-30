@@ -37,6 +37,20 @@ List<Employee> employees = new List<HoneyRaesAPI.Models.Employee>
         Description = "Neato",
         Specialty = "Talking fast"
     },
+    new Employee 
+    { 
+        Id = 3,
+        Name = "Finn",
+        Description = "Mathematical",
+        Specialty = "Has a dog"
+    },
+    new Employee
+    {
+        Id = 4,
+        Name = "Gothos",
+        Description = "Jaghut",
+        Specialty = "Not without folly"
+    }
 };
 List<ServiceTicket> serviceTickets = new List<HoneyRaesAPI.Models.ServiceTicket> 
 {
@@ -44,7 +58,7 @@ List<ServiceTicket> serviceTickets = new List<HoneyRaesAPI.Models.ServiceTicket>
     {
         Id = 1,
         CustomerId = 2,
-        EmployeeId = 2,
+        EmployeeId = null,
         Description = "not good",
         Emergency = true,
     },
@@ -71,7 +85,7 @@ List<ServiceTicket> serviceTickets = new List<HoneyRaesAPI.Models.ServiceTicket>
         EmployeeId = 1,
         Description = "needs attention immediately",
         Emergency = true,
-        DateCompleted = new DateTime(2023,12,20)
+        DateCompleted = new DateTime(2022,12,20)
     }, 
     new ServiceTicket
     {
@@ -211,6 +225,87 @@ app.MapGet("/servicetickets/unassigned", () =>
     
 }
 );
+
+app.MapGet("/employee/available", () =>
+{
+    List<Employee> unassignedEmployees = employees.Where(e => !serviceTickets.Any(st => st.EmployeeId == e.Id && st.DateCompleted == DateTime.MinValue)).ToList();
+    return unassignedEmployees;
+    
+});
+
+app.MapGet("/customer/inactive", () =>
+{
+    List<Customer> inactiveCustomers = customers.Where(c => serviceTickets.Any(st => st.CustomerId == c.Id && (st.DateCompleted == DateTime.MinValue || st.DateCompleted == DateTime.Now.AddYears(-1)))).ToList();
+
+    if (inactiveCustomers != null)
+    {
+        return Results.Ok(inactiveCustomers);
+    }
+    else
+    {
+        return Results.NotFound();
+    }
+});
+
+app.MapGet("/employee/{id}/customers", (int id) =>
+{
+    
+    Employee employee = employees.FirstOrDefault(e => e.Id == id);
+
+    if (employee == null)
+    {
+        return Results.NotFound("Employee not found");
+    }
+    
+    List<ServiceTicket> employeeServiceTickets = serviceTickets.Where(st => st.EmployeeId == id).ToList();
+
+    if (employeeServiceTickets.Count == 0)
+    {
+        return Results.Ok("This employee has no customers.");
+    }
+    
+    List<int> customerIds = employeeServiceTickets.Select(st => st.CustomerId).Distinct().ToList();
+
+    List<Customer> customersAssignedToEmployee = customers.Where(c => customerIds.Contains(c.Id)).ToList();
+
+    return Results.Ok(customersAssignedToEmployee);
+});
+
+app.MapGet("/employee/topEmployee", () =>
+{
+    DateTime lastMonth = DateTime.Now.AddMonths(-1);
+    Employee employeeOfMonth = employees.OrderByDescending(e => serviceTickets.Count(st => st.EmployeeId == e.Id && st.DateCompleted.HasValue && st.DateCompleted.Value.Month == lastMonth.Month)).FirstOrDefault();
+
+    return Results.Ok(employeeOfMonth);
+});
+
+app.MapGet("/servicetickets/review", () =>
+{
+    List<ServiceTicket> completedTickets = serviceTickets.Where(st => st.DateCompleted.HasValue).OrderBy(st => st.DateCompleted).ToList();
+
+    foreach (var ticket in completedTickets)
+    {
+        ticket.Customer = customers.FirstOrDefault(c => c.Id == ticket.CustomerId);
+        ticket.Employee = employees.FirstOrDefault(e => e.Id == ticket.EmployeeId);
+    }
+
+    return Results.Ok(completedTickets);
+});
+
+app.MapGet("/servicetickets/prioritized", () =>
+{
+    var prioritizedTickets = serviceTickets.Where(st => !st.DateCompleted.HasValue).OrderByDescending(st => st.Emergency).ThenBy(st => st.EmployeeId.HasValue) .ToList();
+
+    foreach (var ticket in prioritizedTickets)
+    {
+        ticket.Customer = customers.FirstOrDefault(c => c.Id == ticket.CustomerId);
+        ticket.Employee = employees.FirstOrDefault(e => e.Id == ticket.EmployeeId);
+    }
+
+    return Results.Ok(prioritizedTickets);
+});
+
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
