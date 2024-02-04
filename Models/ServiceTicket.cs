@@ -2,7 +2,7 @@ namespace HoneyRaesAPI.Models;
 
 public class ServiceTicket
 {
-    public int Id { get; set; }
+    public int? Id { get; set; }
 
     public int CustomerId{ get; set; }
 
